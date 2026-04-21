@@ -17,10 +17,15 @@ WorkingDirectory=/var/www
 # Restart policy
 Restart=always
 RestartSec=5
+TimeoutStopSec=15s
+
+ReadWritePaths=/var/log
+LogsDirectory=wp-task-runner
+LogsDirectoryMode=0755
 
 # Security / resource limits
 NoNewPrivileges=yes
-ProtectSystem=strict
+ProtectSystem=full
 ProtectHome=read-only
 PrivateTmp=yes
 ProtectKernelTunables=yes
