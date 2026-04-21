@@ -1,0 +1,29 @@
+# wp-task-runner configuration
+
+valkey:
+  addr: "127.0.0.1:6379"
+  password: "your-strong-valkey-password"   # use env var in production for secrets
+  db: 0
+
+wp_cli:
+  path: "/usr/local/bin/wp"                 # full path to wp-cli
+
+paths:
+  base_path: "/var/www"
+  document_folder: "public"                 # so document root = base_path/domain/document_folder
+
+queues:
+  - "wp_plugin_queue"     # highest priority
+  - "wp_theme_queue"
+  - "wp_core_queue"
+
+logging:
+  level: "info"           # debug | info | warn | error
+  file: "/var/log/wp-task-runner.log"
+
+# Optional: domain → file owner mapping (expand as needed)
+domain_owners:
+  "example.com": "site1-wp"
+  "test.com": "site2-wp"
+  # default fallback if domain not found
+  default_owner: "www-data"
