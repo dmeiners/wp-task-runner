@@ -52,18 +52,6 @@ jobs:
             sha256sum wp-task-runner-${VERSION}-linux-amd64.tar.gz
           } > wp-task-runner_${VERSION}_SHA256SUMS.txt
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: false
-          tags: wp-task-runner:${{ github.ref_name }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
