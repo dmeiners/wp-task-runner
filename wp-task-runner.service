@@ -1,0 +1,35 @@
+[Unit]
+Description=WP Task Runner Daemon (Valkey → WP-CLI)
+After=network.target valkey.service
+Wants=valkey.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+# Path to the binary
+ExecStart=/usr/local/bin/wp-task-runner
+
+# Working directory (optional but recommended)
+WorkingDirectory=/var/www
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Security / resource limits
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Logging
+StandardOutput=append:/var/log/wp-task-runner.log
+StandardError=append:/var/log/wp-task-runner.log
+
+[Install]
+WantedBy=multi-user.target

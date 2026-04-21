@@ -2,7 +2,7 @@
 
 valkey:
   addr: "127.0.0.1:6379"
-  password: "your-strong-valkey-password"   # use env var in production for secrets
+  password: ""   # use env var in production for secrets
   db: 0
 
 wp_cli:

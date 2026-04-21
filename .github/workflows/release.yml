@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'          # trigger on version tags (e.g. v1.0.0)
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -12,9 +12,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -27,14 +24,39 @@ jobs:
             go build -a -ldflags="-s -w -extldflags '-static'" -trimpath \
             -o wp-task-runner ./cmd/daemon
 
-      - name: Upload binary as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wp-task-runner-linux-amd64
-          path: wp-task-runner
+      - name: Make binary executable
+        run: chmod +x wp-task-runner
+
+      - name: Install nFPM
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+      - name: Create .deb package
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          nfpm package \
+            --packager deb \
+            --config nfpm.yaml \
+            --target wp-task-runner_${VERSION}_amd64.deb
+
+      - name: Create tar.gz archive
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          tar -czf wp-task-runner-${VERSION}-linux-amd64.tar.gz wp-task-runner
+
+      - name: Generate SHA256 checksums
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          {
+            echo "# SHA256 checksums for wp-task-runner ${VERSION}"
+            sha256sum wp-task-runner_${VERSION}_amd64.deb
+            sha256sum wp-task-runner-${VERSION}-linux-amd64.tar.gz
+          } > wp-task-runner_${VERSION}_SHA256SUMS.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Build Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -42,28 +64,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp-task-runner-packages
+          path: |
+            wp-task-runner_*.deb
+            wp-task-runner-*-linux-amd64.tar.gz
+            wp-task-runner_*_SHA256SUMS.txt
+
   release:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download binary artifact
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: wp-task-runner-linux-amd64
-
-      - name: Make binary executable
-        run: chmod +x wp-task-runner
+          name: wp-task-runner-packages
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            wp-task-runner
+            wp-task-runner_*.deb
+            wp-task-runner-*-linux-amd64.tar.gz
+            wp-task-runner_*_SHA256SUMS.txt
+          generate_release_notes: true
           draft: false
           prerelease: false
-          generate_release_notes: true

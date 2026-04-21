@@ -1,0 +1,75 @@
+# nfpm.yaml
+name: wp-task-runner
+arch: amd64
+platform: linux
+version: "${VERSION}"
+section: utils
+priority: optional
+
+maintainer: "David Meiners <david@meiners.net>"
+vendor: "Meiners Net LLC"
+homepage: "https://github.com/dmeiners/wp-task-runner"
+license: "MIT"
+
+description: |
+  Secure background daemon for running WP-CLI tasks (plugin/theme/core updates)
+  from Valkey queues in a multi-virtual-host WordPress environment.
+
+deb:
+  fields:
+    Replaces: wp-task-runner
+    Conflicts: wp-task-runner
+
+contents:
+  # Main binary
+  - src: wp-task-runner
+    dst: /usr/local/bin/wp-task-runner
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+  # Default config
+  - src: config.yaml.example
+    dst: /etc/wp-task-runner/config.yaml
+    type: config|noreplace
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  # Systemd service
+  - src: wp-task-runner.service
+    dst: /lib/systemd/system/wp-task-runner.service
+    type: config|noreplace
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
+
+  # Ensure config directory exists
+  - dst: /etc/wp-task-runner
+    type: "dir"
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+
+overrides:
+  deb:
+    scripts:
+      postinst: |
+        #!/bin/sh
+        set -e
+        # Create log file with correct ownership
+        touch /var/log/wp-task-runner.log
+        chown ubuntu:ubuntu /var/log/wp-task-runner.log
+        chmod 644 /var/log/wp-task-runner.log
+        
+        systemctl daemon-reload
+        systemctl enable --now wp-task-runner.service || true
+      prerm: |
+        #!/bin/sh
+        set -e
+        systemctl stop wp-task-runner.service || true
+        systemctl disable wp-task-runner.service || true
