@@ -36,7 +36,7 @@ jobs:
           CLEAN_VERSION=${RAW_VERSION#v}
           echo "Building deb with cleaned version: $CLEAN_VERSION"
 
-          nfpm package \
+          VERSION=$CLEAN_VERSION nfpm package \
             --packager deb \
             --config nfpm.yaml \
             --target wp-task-runner_${CLEAN_VERSION}_amd64.deb
