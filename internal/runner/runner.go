@@ -30,38 +30,46 @@ func New(cfg *config.Config, redisClient *redis.Client) *Runner {
 }
 
 func (r *Runner) Start(ctx context.Context) error {
+    logger.Printf("wp-task-runner daemon started. Listening on %d queues: %v", 
+        len(r.cfg.Queues), r.cfg.Queues)
+
     for {
         select {
         case <-ctx.Done():
+            logger.Println("Received shutdown signal, stopping daemon...")
             return ctx.Err()
-        default:
-        }
 
-        result, err := r.redisClient.BRPop(ctx, 0, r.cfg.Queues...).Result()
-        if err != nil {
+        default:
+            // BRPOP with a reasonable timeout so we can check for shutdown signal periodically
+            result, err := r.redisClient.BRPop(ctx, 5*time.Second, r.cfg.Queues...).Result()
+            
             if err == redis.Nil {
+                // Timeout reached - just loop and check for shutdown again
                 continue
             }
-            log.Printf("BRPOP error: %v - retrying in 1s", err)
-            time.Sleep(1 * time.Second)
-            continue
-        }
+            if err != nil {
+                logger.Printf("BRPOP error: %v - retrying...", err)
+                time.Sleep(1 * time.Second)
+                continue
+            }
 
-        queueName := result[0]
-        taskJSON := result[1]
+            queueName := result[0]
+            taskJSON := result[1]
 
-        var t task.Task
-        if err := json.Unmarshal([]byte(taskJSON), &t); err != nil {
-            log.Printf("Invalid JSON from queue %s: %v", queueName, err)
-            continue
-        }
+            var t task.Task
+            if err := json.Unmarshal([]byte(taskJSON), &t); err != nil {
+                logger.Printf("Invalid JSON from queue %s: %v", queueName, err)
+                continue
+            }
 
-        log.Printf("Processing task from %s: %s for domain %s (request_id: %s)", queueName, t.Action, t.Domain, t.RequestID)
+            logger.Printf("Processing task from %s: %s for domain %s (request_id: %s)", 
+                queueName, t.Action, t.Domain, t.RequestID)
 
-        if err := r.executeTask(t); err != nil {
-            log.Printf("Task failed (request_id: %s): %v", t.RequestID, err)
-        } else {
-            log.Printf("Task completed successfully (request_id: %s)", t.RequestID)
+            if err := r.executeTask(t); err != nil {
+                logger.Printf("Task failed (request_id: %s): %v", t.RequestID, err)
+            } else {
+                logger.Printf("Task completed successfully (request_id: %s)", t.RequestID)
+            }
         }
     }
 }
@@ -69,6 +77,8 @@ func (r *Runner) Start(ctx context.Context) error {
 func (r *Runner) executeTask(t task.Task) error {
     // Build full document root: /var/www/{domain}/public
     docRoot := filepath.Join(r.cfg.Paths.BasePath, t.Domain, r.cfg.Paths.DocumentFolder)
+
+    log.Printf("Running WP-CLI with path: %s", docRoot)
 
     // Build WP-CLI arguments
     args := []string{"--path=" + docRoot}
@@ -103,6 +113,8 @@ func (r *Runner) executeTask(t task.Task) error {
 
     // Run WP-CLI directly as the current user (ubuntu) - NO SUDO
     cmd := exec.Command(r.cfg.WPCLI.Path, append([]string{cmdName}, args...)...)
+
+    log.Printf("Running WP-CLI with command: %s", cmd)
 
     output, err := cmd.CombinedOutput()
 
