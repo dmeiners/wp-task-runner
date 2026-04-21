@@ -3,6 +3,8 @@ name: wp-task-runner
 arch: amd64
 platform: linux
 version: "${VERSION}"
+version_schema: "none"
+epoch: 0
 section: utils
 priority: optional
 
