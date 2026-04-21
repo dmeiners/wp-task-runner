@@ -17,12 +17,29 @@ import (
     "github.com/dmeiners/wp-task-runner/internal/task"
 )
 
+var logger *log.Logger
+
 type Runner struct {
     cfg         *config.Config
     redisClient *redis.Client
 }
 
 func New(cfg *config.Config, redisClient *redis.Client) *Runner {
+    logFile := cfg.Logging.File
+    if logFile == "" {
+        logFile = "/var/log/wp-task-runner.log"
+    }
+
+    // Open log file
+    f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        // Fallback to stdout if we can't open the log file
+        fmt.Printf("Warning: cannot open log file %s: %v. Falling back to stdout.\n", logFile, err)
+        f = os.Stdout
+    }
+
+    logger = log.New(f, "", log.LstdFlags|log.Lshortfile)
+
     return &Runner{
         cfg:         cfg,
         redisClient: redisClient,
@@ -40,12 +57,11 @@ func (r *Runner) Start(ctx context.Context) error {
             return ctx.Err()
 
         default:
-            // BRPOP with a reasonable timeout so we can check for shutdown signal periodically
+            // BRPOP with timeout so we can respond to shutdown signals
             result, err := r.redisClient.BRPop(ctx, 5*time.Second, r.cfg.Queues...).Result()
-            
+
             if err == redis.Nil {
-                // Timeout reached - just loop and check for shutdown again
-                continue
+                continue // timeout, check for shutdown again
             }
             if err != nil {
                 logger.Printf("BRPOP error: %v - retrying...", err)
@@ -78,7 +94,7 @@ func (r *Runner) executeTask(t task.Task) error {
     // Build full document root: /var/www/{domain}/public
     docRoot := filepath.Join(r.cfg.Paths.BasePath, t.Domain, r.cfg.Paths.DocumentFolder)
 
-    log.Printf("Running WP-CLI with path: %s", docRoot)
+    logger.Printf("Running WP-CLI with path: %s", docRoot)
 
     // Build WP-CLI arguments
     args := []string{"--path=" + docRoot}
@@ -111,27 +127,16 @@ func (r *Runner) executeTask(t task.Task) error {
         return fmt.Errorf("unknown action: %s", t.Action)
     }
 
-    // Run WP-CLI directly as the current user (ubuntu) - NO SUDO
+    // Run WP-CLI directly (no sudo)
     cmd := exec.Command(r.cfg.WPCLI.Path, append([]string{cmdName}, args...)...)
 
-    log.Printf("Running WP-CLI with command: %s", cmd)
+    logger.Printf("Running WP-CLI command: %s", cmd)
 
     output, err := cmd.CombinedOutput()
 
-    // Logging
-    logLine := fmt.Sprintf("Domain: %s | Action: %s | Slug: %s | Version: %s\nOutput:\n%s",
+    // Log the result
+    logger.Printf("Domain: %s | Action: %s | Slug: %s | Version: %s\nOutput:\n%s",
         t.Domain, t.Action, t.Slug, t.Version, string(output))
-
-    logFile := r.cfg.Logging.File
-    if logFile == "" {
-        logFile = "/var/log/wp-task-runner.log"
-    }
-
-    f, openErr := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-    if openErr == nil {
-        fmt.Fprintf(f, "[%s] %s\n", time.Now().Format(time.RFC3339), logLine)
-        f.Close()
-    }
 
     return err
 }
