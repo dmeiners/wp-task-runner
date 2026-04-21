@@ -57,19 +57,19 @@ contents:
 
 overrides:
   deb:
-    scripts:
-      postinst: |
-        #!/bin/sh
-        set -e
-        # Create log file with correct ownership
-        touch /var/log/wp-task-runner.log
-        chown ubuntu:ubuntu /var/log/wp-task-runner.log
-        chmod 644 /var/log/wp-task-runner.log
-        
-        systemctl daemon-reload
-        systemctl enable --now wp-task-runner.service || true
-      prerm: |
-        #!/bin/sh
-        set -e
-        systemctl stop wp-task-runner.service || true
-        systemctl disable wp-task-runner.service || true
+    postinstall: |
+      #!/bin/sh
+      set -e
+      # Create log file with correct ownership for ubuntu user
+      touch /var/log/wp-task-runner.log
+      chown ubuntu:ubuntu /var/log/wp-task-runner.log
+      chmod 644 /var/log/wp-task-runner.log
+
+      systemctl daemon-reload
+      systemctl enable --now wp-task-runner.service || true
+
+    preremove: |
+      #!/bin/sh
+      set -e
+      systemctl stop wp-task-runner.service || true
+      systemctl disable wp-task-runner.service || true

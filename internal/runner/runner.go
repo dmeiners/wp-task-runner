@@ -72,7 +72,7 @@ func (r *Runner) executeTask(t task.Task) error {
     if !exists {
         owner = r.cfg.DomainOwners["default_owner"]
         if owner == "" {
-            owner = "www-data"
+            owner = "ubuntu"
         }
     }
 
