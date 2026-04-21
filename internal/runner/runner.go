@@ -67,15 +67,6 @@ func (r *Runner) Start(ctx context.Context) error {
 }
 
 func (r *Runner) executeTask(t task.Task) error {
-    // Determine file owner
-    owner, exists := r.cfg.DomainOwners[t.Domain]
-    if !exists {
-        owner = r.cfg.DomainOwners["default_owner"]
-        if owner == "" {
-            owner = "ubuntu"
-        }
-    }
-
     // Build full document root: /var/www/{domain}/public
     docRoot := filepath.Join(r.cfg.Paths.BasePath, t.Domain, r.cfg.Paths.DocumentFolder)
 
@@ -110,15 +101,14 @@ func (r *Runner) executeTask(t task.Task) error {
         return fmt.Errorf("unknown action: %s", t.Action)
     }
 
-    // Full sudo command
-    fullArgs := append([]string{"-u", owner, "--non-interactive", r.cfg.WPCLI.Path, cmdName}, args...)
+    // Run WP-CLI directly as the current user (ubuntu) - NO SUDO
+    cmd := exec.Command(r.cfg.WPCLI.Path, append([]string{cmdName}, args...)...)
 
-    cmd := exec.Command("sudo", fullArgs...)
     output, err := cmd.CombinedOutput()
 
     // Logging
-    logLine := fmt.Sprintf("Domain: %s | Action: %s | Slug: %s | Version: %s | Owner: %s\nOutput:\n%s",
-        t.Domain, t.Action, t.Slug, t.Version, owner, string(output))
+    logLine := fmt.Sprintf("Domain: %s | Action: %s | Slug: %s | Version: %s\nOutput:\n%s",
+        t.Domain, t.Action, t.Slug, t.Version, string(output))
 
     logFile := r.cfg.Logging.File
     if logFile == "" {
