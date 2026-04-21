@@ -32,25 +32,30 @@ jobs:
 
       - name: Create .deb package
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
+          RAW_VERSION=${GITHUB_REF#refs/tags/}
+          CLEAN_VERSION=${RAW_VERSION#v}
+          echo "Building deb with cleaned version: $CLEAN_VERSION"
+
           nfpm package \
             --packager deb \
             --config nfpm.yaml \
-            --target wp-task-runner_${VERSION}_amd64.deb
+            --target wp-task-runner_${CLEAN_VERSION}_amd64.deb
 
       - name: Create tar.gz archive
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          tar -czf wp-task-runner-${VERSION}-linux-amd64.tar.gz wp-task-runner
+          RAW_VERSION=${GITHUB_REF#refs/tags/}
+          CLEAN_VERSION=${RAW_VERSION#v}
+          tar -czf wp-task-runner-${CLEAN_VERSION}-linux-amd64.tar.gz wp-task-runner
 
       - name: Generate SHA256 checksums
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
+          RAW_VERSION=${GITHUB_REF#refs/tags/}
+          CLEAN_VERSION=${RAW_VERSION#v}
           {
-            echo "# SHA256 checksums for wp-task-runner ${VERSION}"
-            sha256sum wp-task-runner_${VERSION}_amd64.deb
-            sha256sum wp-task-runner-${VERSION}-linux-amd64.tar.gz
-          } > wp-task-runner_${VERSION}_SHA256SUMS.txt
+            echo "# SHA256 checksums for wp-task-runner ${CLEAN_VERSION}"
+            sha256sum wp-task-runner_${CLEAN_VERSION}_amd64.deb
+            sha256sum wp-task-runner-${CLEAN_VERSION}-linux-amd64.tar.gz
+          } > wp-task-runner_${CLEAN_VERSION}_SHA256SUMS.txt
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
