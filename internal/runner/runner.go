@@ -102,14 +102,14 @@ func (r *Runner) executeTask(t task.Task) error {
     var cmdName string
 
     switch t.Action {
-    case "plugin-install", "plugin-update":
+    case "plugin-install", "plugin-update", "plugin-delete":
         cmdName = "plugin"
         args = append(args, strings.TrimPrefix(t.Action, "plugin-"), t.Slug)
         if t.Version != "" {
             args = append(args, "--version="+t.Version)
         }
 
-    case "theme-install", "theme-update":
+    case "theme-install", "theme-update", "theme-delete":
         cmdName = "theme"
         args = append(args, strings.TrimPrefix(t.Action, "theme-"), t.Slug)
         if t.Version != "" {
